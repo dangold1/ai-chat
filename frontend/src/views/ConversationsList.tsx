@@ -39,7 +39,7 @@ const List = styled.ul`
     flex-direction: column;
     gap: 8px;
     padding: 8px;
-    overflow-y: scroll;
+    overflow-y: auto;
     flex: 1;
 `;
 

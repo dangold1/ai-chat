@@ -32,7 +32,9 @@ const ROLE_LABEL: Record<ChatRole, string> = {
     assistant: 'agent',
 };
 
-export const ChatMessage: React.FC<IChatMessage> = ({ content, role }) => {
+const ChatMessageImpl: React.FC<IChatMessage> = ({ content, role }) => {
     const Component = role === 'user' ? UserChatMessage : AgentChatMessage;
     return <Component><b>{ROLE_LABEL[role]}:</b> {content}</Component>
 }
+
+export const ChatMessage = React.memo(ChatMessageImpl);

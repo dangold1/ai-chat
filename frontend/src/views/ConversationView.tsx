@@ -1,4 +1,4 @@
-import {FormEvent, useEffect, useState} from "react";
+import {FormEvent, useCallback, useEffect, useRef, useState} from "react";
 import styled from "styled-components";
 import {ChatApiError} from "../api/chat";
 import {ChatMessage, IChatMessage} from "../ChatMessage";
@@ -43,7 +43,7 @@ const ChatMessagesWrapper = styled.section`
     flex-direction: column;
     gap: 8px;
     padding: 8px;
-    overflow-y: scroll;
+    overflow-y: auto;
     flex: 1;
 `;
 
@@ -90,6 +90,37 @@ const toView = (m: StoredMessage): IChatMessage => ({
     content: m.content,
 });
 
+interface ComposerProps {
+    disabled: boolean;
+    onSubmit: (message: string) => void;
+}
+
+// Owns its own input state so typing never re-renders the parent / message list.
+function MessageComposer({disabled, onSubmit}: ComposerProps) {
+    const [input, setInput] = useState('');
+    const submit = (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const trimmed = input.trim();
+        if (!trimmed || disabled) return;
+        onSubmit(trimmed);
+        setInput('');
+    };
+    return (
+        <Form onSubmit={submit}>
+            <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                disabled={disabled}
+                autoFocus
+            />
+            <button type="submit" disabled={disabled || input.trim().length === 0}>
+                Send
+            </button>
+        </Form>
+    );
+}
+
 interface Props {
     conversationId: string;
 }
@@ -99,7 +130,7 @@ export function ConversationView({conversationId}: Props) {
     const [loadError, setLoadError] = useState<string | null>(null);
     const [messages, setMessages] = useState<IChatMessage[]>([]);
     const [pending, setPending] = useState(false);
-    const [input, setInput] = useState('');
+    const messagesRef = useRef<HTMLElement>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -132,14 +163,17 @@ export function ConversationView({conversationId}: Props) {
         return () => { cancelled = true; };
     }, [conversationId]);
 
+    useEffect(() => {
+        const el = messagesRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+    }, [messages, pending]);
+
     const goBack = () => {
         window.location.hash = '#/';
     };
 
-    const formOnSubmit = async (e: FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const message = input.trim();
-        if (!message || pending || !conversation) return;
+    const handleSubmit = useCallback(async (message: string) => {
+        if (pending || !conversation) return;
 
         const optimisticUser: IChatMessage = {
             id: newLocalId(),
@@ -147,14 +181,11 @@ export function ConversationView({conversationId}: Props) {
             content: message,
         };
         setMessages((prev) => [...prev, optimisticUser]);
-        setInput('');
         setPending(true);
 
         try {
             const {userMessage, reply} = await sendConversationMessage(conversation.id, message);
             setMessages((prev) => {
-                // Replace optimistic user message with the server-issued one,
-                // then append the assistant reply.
                 const replaced = prev.map((m) => (m.id === optimisticUser.id ? toView(userMessage) : m));
                 return [...replaced, toView(reply)];
             });
@@ -171,7 +202,7 @@ export function ConversationView({conversationId}: Props) {
         } finally {
             setPending(false);
         }
-    };
+    }, [conversation, pending]);
 
     if (loadError) {
         return (
@@ -206,22 +237,11 @@ export function ConversationView({conversationId}: Props) {
                 <Title>{conversation.title}</Title>
                 <span style={{width: 64}} />
             </TopBar>
-            <ChatMessagesWrapper>
+            <ChatMessagesWrapper ref={messagesRef}>
                 {messages.map((m) => <ChatMessage {...m} key={m.id} />)}
                 {pending && <PendingBubble>agent is typing…</PendingBubble>}
             </ChatMessagesWrapper>
-            <Form onSubmit={formOnSubmit}>
-                <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    disabled={pending}
-                    autoFocus
-                />
-                <button type="submit" disabled={pending || input.trim().length === 0}>
-                    Send
-                </button>
-            </Form>
+            <MessageComposer disabled={pending} onSubmit={handleSubmit} />
         </MainBodyWrapper>
     );
 }

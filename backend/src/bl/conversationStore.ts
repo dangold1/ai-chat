@@ -32,6 +32,20 @@ const conversations = new Map<string, Conversation>();
 
 const DEFAULT_TITLE = 'New conversation';
 const MAX_TITLE_LEN = 60;
+const MAX_CONVERSATIONS = 500;
+
+function evictOldestIfNeeded(): void {
+    if (conversations.size < MAX_CONVERSATIONS) return;
+    let oldestId: string | undefined;
+    let oldestUpdated = Infinity;
+    for (const c of conversations.values()) {
+        if (c.updatedAt < oldestUpdated) {
+            oldestUpdated = c.updatedAt;
+            oldestId = c.id;
+        }
+    }
+    if (oldestId) conversations.delete(oldestId);
+}
 
 function deriveTitle(content: string): string {
     const trimmed = content.trim().replace(/\s+/g, ' ');
@@ -40,6 +54,7 @@ function deriveTitle(content: string): string {
 }
 
 export function createConversation(title?: string): Conversation {
+    evictOldestIfNeeded();
     const now = Date.now();
     const conv: Conversation = {
         id: randomUUID(),

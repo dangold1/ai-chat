@@ -1,8 +1,13 @@
 import './App.css'
 import './reset.css'
-import {useEffect, useState} from "react";
-import {ConversationsList} from "./views/ConversationsList";
-import {ConversationView} from "./views/ConversationView";
+import {lazy, Suspense, useEffect, useState} from "react";
+
+const ConversationsList = lazy(() =>
+    import("./views/ConversationsList").then((m) => ({default: m.ConversationsList}))
+);
+const ConversationView = lazy(() =>
+    import("./views/ConversationView").then((m) => ({default: m.ConversationView}))
+);
 
 type Route =
     | { name: 'list' }
@@ -29,10 +34,13 @@ function App() {
         return () => window.removeEventListener('hashchange', onHashChange);
     }, []);
 
-    if (route.name === 'conversation') {
-        return <ConversationView conversationId={route.id} />;
-    }
-    return <ConversationsList />;
+    return (
+        <Suspense fallback={null}>
+            {route.name === 'conversation'
+                ? <ConversationView conversationId={route.id} />
+                : <ConversationsList />}
+        </Suspense>
+    );
 }
 
 export default App

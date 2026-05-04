@@ -31,11 +31,19 @@ export interface OpenAITool {
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const TIMEOUT_MS = 20_000;
 
+const inFlight = new Set<AbortController>();
+
+export function abortAllInFlight(): void {
+    for (const controller of inFlight) controller.abort();
+    inFlight.clear();
+}
+
 export async function createChatCompletion(
     messages: ChatMessage[],
     opts: { model?: string; temperature?: number } = {}
 ): Promise<string> {
     const controller = new AbortController();
+    inFlight.add(controller);
     const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     let res: Response;
@@ -60,6 +68,7 @@ export async function createChatCompletion(
         throw err;
     } finally {
         clearTimeout(timeout);
+        inFlight.delete(controller);
     }
 
     if (!res.ok) {
@@ -81,6 +90,7 @@ export async function createChatCompletionWithTool(
     opts: { model?: string; temperature?: number } = {}
 ): Promise<Record<string, unknown>> {
     const controller = new AbortController();
+    inFlight.add(controller);
     const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     let res: Response;
@@ -107,6 +117,7 @@ export async function createChatCompletionWithTool(
         throw err;
     } finally {
         clearTimeout(timeout);
+        inFlight.delete(controller);
     }
 
     if (!res.ok) {

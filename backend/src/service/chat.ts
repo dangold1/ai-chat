@@ -9,9 +9,10 @@ const buildSystemPrompt = (emoji: string) =>
 
 export async function generateReply(
     history: ChatMessage[],
-    userMessage: string
+    userMessage: string,
+    opts: { conversationId?: string } = {}
 ): Promise<ChatReply> {
-    const emoji = pickEmoji();
+    const emoji = await pickEmoji(userMessage, opts.conversationId);
 
     const messages: ChatMessage[] = [
         { role: 'system', content: buildSystemPrompt(emoji) },
