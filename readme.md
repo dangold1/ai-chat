@@ -1,7 +1,6 @@
-# Notch code interview
+
 
 ## Background
-Welcome to Notch! We're excited to meet you!
 The goal for this coding exercise is for us to see your basic coding skills:
 - Understanding requirements
 - Implementing code that works
